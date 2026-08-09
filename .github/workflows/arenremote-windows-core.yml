@@ -1,0 +1,127 @@
+name: Build ArenRemote Windows x64 Core
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - arenremote-v1
+    paths:
+      - "src/bin/arenremote.rs"
+      - "src/**"
+      - "libs/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "build.rs"
+      - ".github/workflows/arenremote-windows-core.yml"
+
+permissions:
+  contents: read
+
+env:
+  VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
+  VCPKG_COMMIT_ID: "120deac3062162151622ca4860575a33844ba10b"
+  VCPKG_DEFAULT_TRIPLET: "x64-windows-static"
+  VCPKG_DEFAULT_HOST_TRIPLET: "x64-windows-static"
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-windows-x64:
+    runs-on: windows-2022
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout ArenRemote source
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          submodules: recursive
+
+      - name: Export GitHub Actions cache environment variables
+        uses: actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410 # v6
+        with:
+          script: |
+            core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
+            core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
+
+      - name: Install LLVM 15
+        uses: KyleMayes/install-llvm-action@ebc0426251bc40c7cd31162802432c68818ab8f0 # v2.0.9
+        with:
+          version: "15.0.6"
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
+        with:
+          toolchain: "1.75.0"
+          targets: "x86_64-pc-windows-msvc"
+          components: "rustfmt"
+
+      - name: Setup vcpkg
+        uses: lukka/run-vcpkg@b1a0dd252f06b9e25b3c022a9a03bd7a427fb6a2 # v11
+        with:
+          vcpkgDirectory: C:\vcpkg
+          vcpkgGitCommitId: ${{ env.VCPKG_COMMIT_ID }}
+          doNotCache: false
+
+      - name: Install native dependencies
+        shell: pwsh
+        run: |
+          & "$env:VCPKG_ROOT\vcpkg.exe" install `
+            --triplet x64-windows-static `
+            --x-install-root="$env:VCPKG_ROOT\installed"
+
+      - name: Cache Rust build output
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        with:
+          prefix-key: arenremote-windows-x64
+
+      - name: Show tool versions
+        shell: pwsh
+        run: |
+          rustc --version
+          cargo --version
+          clang --version
+          Write-Host "VCPKG_ROOT=$env:VCPKG_ROOT"
+
+      - name: Compile ArenRemote core
+        shell: pwsh
+        run: |
+          cargo build `
+            --locked `
+            --release `
+            --target x86_64-pc-windows-msvc `
+            --bin arenremote `
+            --features inline
+
+      - name: Prepare artifact
+        shell: pwsh
+        run: |
+          $Source = "target\x86_64-pc-windows-msvc\release\arenremote.exe"
+          if (-not (Test-Path $Source)) {
+            throw "ArenRemote binary was not produced: $Source"
+          }
+
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Copy-Item $Source "dist\ArenRemote.Core.exe" -Force
+
+          $Hash = (Get-FileHash "dist\ArenRemote.Core.exe" -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$Hash  ArenRemote.Core.exe" | Set-Content -Encoding ascii "dist\ArenRemote.Core.exe.sha256"
+
+          @(
+            "Aren Remote technical isolation build",
+            "Branch: $env:GITHUB_REF_NAME",
+            "Commit: $env:GITHUB_SHA",
+            "Target: Windows x64",
+            "Runtime identity: ArenRemote",
+            "Customer installation: not required",
+            "Third-party foundation: RustDesk OSS (AGPL-3.0); attribution/source obligations retained"
+          ) | Set-Content -Encoding utf8 "dist\BUILD_INFO.txt"
+
+          Get-ChildItem dist | Format-Table Name,Length,LastWriteTime
+          Get-Content "dist\ArenRemote.Core.exe.sha256"
+
+      - name: Upload ArenRemote core
+        uses: actions/upload-artifact@v4
+        with:
+          name: ArenRemote-Core-Windows-x64
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 14
