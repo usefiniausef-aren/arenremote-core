@@ -1,3 +1,17 @@
+@font-face {
+    font-family: "Vazirmatn";
+    src: url("data:font/ttf;base64,__VAZIRMATN_REGULAR_TTF__") format("truetype");
+    font-weight: 400;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: "Vazirmatn";
+    src: url("data:font/ttf;base64,__VAZIRMATN_BOLD_TTF__") format("truetype");
+    font-weight: 700;
+    font-style: normal;
+}
+
 html {
     background: #f4f7fb;
 }
@@ -8,8 +22,12 @@ body {
     overflow: hidden;
     background: #f4f7fb;
     color: #172033;
-    font-family: "Segoe UI", Tahoma, sans-serif;
+    font-family: "Vazirmatn", "Segoe UI", Tahoma, sans-serif;
     direction: rtl;
+}
+
+body, input, button {
+    font-family: "Vazirmatn", "Segoe UI", Tahoma, sans-serif;
 }
 
 .aren-shell {
@@ -22,34 +40,49 @@ body {
 
 .aren-header {
     flow: horizontal;
-    height: 58px;
+    height: 72px;
     vertical-align: middle;
+}
+
+.aren-brand-wrap {
+    width: *;
+    flow: horizontal;
+    vertical-align: middle;
+    border-spacing: 12px;
+}
+
+.aren-logo {
+    width: 54px;
+    height: 54px;
 }
 
 .aren-brand {
     width: *;
+    padding-top: 3px;
 }
 
 .aren-brand-title {
     font-size: 24px;
     font-weight: 700;
     color: #172033;
+    direction: ltr;
+    text-align: right;
 }
 
 .aren-brand-subtitle {
-    margin-top: 4px;
+    margin-top: 3px;
     font-size: 12px;
     color: #6f7b91;
 }
 
 .aren-badge {
-    margin-top: 8px;
+    margin-top: 10px;
     padding: 7px 12px;
     border-radius: 18px;
     background: #e9f8ef;
     color: #157347;
     font-size: 12px;
-    font-weight: 600;
+    font-weight: 700;
 }
 
 .aren-grid {
@@ -78,7 +111,7 @@ body {
 
 .aren-card-subtitle {
     font-size: 12px;
-    line-height: 1.6em;
+    line-height: 1.9em;
     color: #778298;
 }
 
@@ -118,7 +151,7 @@ body {
     border: 1px solid #f3e2a5;
     color: #725b16;
     font-size: 12px;
-    line-height: 1.65em;
+    line-height: 1.9em;
 }
 
 .aren-input-label {
@@ -176,7 +209,7 @@ button#connect:active {
     background: #f6f8fc;
     color: #667085;
     font-size: 11px;
-    line-height: 1.6em;
+    line-height: 1.85em;
 }
 
 .aren-footer {
