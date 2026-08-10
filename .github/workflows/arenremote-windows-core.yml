@@ -12,6 +12,7 @@ on:
       - "Cargo.toml"
       - "Cargo.lock"
       - "build.rs"
+      - "res/inline-sciter.py"
       - ".github/workflows/arenremote-windows-core.yml"
 
 permissions:
@@ -23,6 +24,7 @@ env:
   VCPKG_DEFAULT_TRIPLET: "x64-windows-static"
   VCPKG_DEFAULT_HOST_TRIPLET: "x64-windows-static"
   CARGO_TERM_COLOR: always
+  SCITER_SHA256: "4d97528e157c55ef1fabe9e37a9697116ab66660d7da6163f90a3a7abf80dd56"
 
 jobs:
   build-windows-x64:
@@ -105,7 +107,7 @@ jobs:
             --bin arenremote `
             --features inline
 
-      - name: Download Sciter Windows x64 runtime
+      - name: Download and verify Sciter Windows x64 runtime
         shell: pwsh
         run: |
           $SciterUrl = "https://raw.githubusercontent.com/c-smile/sciter-sdk/master/bin.win/x64/sciter.dll"
@@ -122,8 +124,12 @@ jobs:
             throw "Sciter runtime looks invalid: $($SciterFile.Length) bytes"
           }
 
-          Get-FileHash $SciterPath -Algorithm SHA256 |
-            Format-List Algorithm,Hash,Path
+          $ActualSciterHash = (Get-FileHash $SciterPath -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($ActualSciterHash -ne $env:SCITER_SHA256) {
+            throw "Sciter SHA256 mismatch. Expected $env:SCITER_SHA256, got $ActualSciterHash"
+          }
+
+          Write-Host "Verified Sciter SHA256: $ActualSciterHash"
 
       - name: Prepare artifact
         shell: pwsh
@@ -148,15 +154,28 @@ jobs:
           "$SciterHash  sciter.dll" | Set-Content -Encoding ascii "dist\sciter.dll.sha256"
 
           @(
-            "Aren Remote technical isolation build",
+            "Aren Remote Windows x64 support build",
             "Branch: $env:GITHUB_REF_NAME",
             "Commit: $env:GITHUB_SHA",
             "Target: Windows x64",
             "Runtime identity: ArenRemote",
+            "Rendezvous/relay: Aren self-hosted infrastructure",
+            "Consent profile: incoming control requires local click approval",
+            "Phase profile: remote desktop control only; file transfer/terminal/camera/tunnel disabled",
             "Customer installation: not required",
-            "UI runtime: Sciter x64 bundled beside ArenRemote.Core.exe",
-            "Third-party foundation: RustDesk OSS (AGPL-3.0); attribution/source obligations retained"
+            "UI runtime: verified Sciter x64 bundled beside ArenRemote.Core.exe"
           ) | Set-Content -Encoding utf8 "dist\BUILD_INFO.txt"
+
+          @(
+            "OPEN-SOURCE NOTICES",
+            "",
+            "Aren Remote contains modified RustDesk open-source software.",
+            "RustDesk upstream: https://github.com/rustdesk/rustdesk",
+            "Modified Aren Remote source: https://github.com/usefiniausef-aren/arenremote-core",
+            "RustDesk is licensed under GNU AGPL-3.0. Applicable license and source-code obligations are retained.",
+            "",
+            "The Sciter runtime is distributed as a separate runtime component beside ArenRemote.Core.exe."
+          ) | Set-Content -Encoding utf8 "dist\OSS_NOTICES.txt"
 
           Get-ChildItem dist | Format-Table Name,Length,LastWriteTime
           Get-Content "dist\ArenRemote.Core.exe.sha256"
