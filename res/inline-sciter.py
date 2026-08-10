@@ -1,45 +1,62 @@
 #!/usr/bin/env python3
 
+import base64
 import re
 
 
-def strip(s): return re.sub(r'\s+\n', '\n', re.sub(r'\n\s+', '\n', s))
+def strip(s):
+    return re.sub(r'\s+\n', '\n', re.sub(r'\n\s+', '\n', s))
 
-common_css = open('src/ui/common.css').read()
-common_tis = open('src/ui/common.tis', encoding='UTF8').read()
 
-index = open('src/ui/index.html', encoding='UTF8').read() \
-    .replace('@import url(arenremote.css);', open('src/ui/arenremote.css', encoding='UTF8').read()) \
-    .replace('include "arenremote.tis";', open('src/ui/arenremote.tis', encoding='UTF8').read())
+def read_text(path):
+    return open(path, encoding='UTF8').read()
 
-remote = open('src/ui/remote.html').read() \
-    .replace('@import url(remote.css);', open('src/ui/remote.css').read()) \
-    .replace('@import url(header.css);', open('src/ui/header.css').read()) \
-    .replace('@import url(file_transfer.css);', open('src/ui/file_transfer.css').read()) \
-    .replace('include "remote.tis";', open('src/ui/remote.tis').read()) \
-    .replace('include "msgbox.tis";', open('src/ui/msgbox.tis').read()) \
-    .replace('include "grid.tis";', open('src/ui/grid.tis').read()) \
-    .replace('include "header.tis";', open('src/ui/header.tis').read()) \
-    .replace('include "file_transfer.tis";', open('src/ui/file_transfer.tis').read()) \
-    .replace('include "port_forward.tis";', open('src/ui/port_forward.tis').read()) \
-    .replace('include "printer.tis";', open('src/ui/printer.tis').read())
 
-chatbox = open('src/ui/chatbox.html').read()
-install = open('src/ui/install.html').read().replace('include "install.tis";', open('src/ui/install.tis').read())
+def read_b64(path):
+    return base64.b64encode(open(path, 'rb').read()).decode('ascii')
 
-cm = open('src/ui/cm.html').read() \
-    .replace('@import url(cm.css);', open('src/ui/cm.css').read()) \
-    .replace('include "cm.tis";', open('src/ui/cm.tis').read())
+
+common_css = read_text('src/ui/common.css')
+common_tis = read_text('src/ui/common.tis')
+
+aren_css = read_text('src/ui/arenremote.css') \
+    .replace('__VAZIRMATN_REGULAR_TTF__', read_b64('res/Vazirmatn-Regular.ttf')) \
+    .replace('__VAZIRMATN_BOLD_TTF__', read_b64('res/Vazirmatn-Bold.ttf'))
+
+aren_logo = read_text('res/aren-logo.png.b64').strip()
+
+index = read_text('src/ui/index.html') \
+    .replace('@import url(arenremote.css);', aren_css) \
+    .replace('__AREN_LOGO_PNG__', aren_logo) \
+    .replace('include "arenremote.tis";', read_text('src/ui/arenremote.tis'))
+
+remote = read_text('src/ui/remote.html') \
+    .replace('@import url(remote.css);', read_text('src/ui/remote.css')) \
+    .replace('@import url(header.css);', read_text('src/ui/header.css')) \
+    .replace('@import url(file_transfer.css);', read_text('src/ui/file_transfer.css')) \
+    .replace('include "remote.tis";', read_text('src/ui/remote.tis')) \
+    .replace('include "msgbox.tis";', read_text('src/ui/msgbox.tis')) \
+    .replace('include "grid.tis";', read_text('src/ui/grid.tis')) \
+    .replace('include "header.tis";', read_text('src/ui/header.tis')) \
+    .replace('include "file_transfer.tis";', read_text('src/ui/file_transfer.tis')) \
+    .replace('include "port_forward.tis";', read_text('src/ui/port_forward.tis')) \
+    .replace('include "printer.tis";', read_text('src/ui/printer.tis'))
+
+chatbox = read_text('src/ui/chatbox.html')
+install = read_text('src/ui/install.html').replace('include "install.tis";', read_text('src/ui/install.tis'))
+
+cm = read_text('src/ui/cm.html') \
+    .replace('@import url(cm.css);', read_text('src/ui/cm.css')) \
+    .replace('include "cm.tis";', read_text('src/ui/cm.tis'))
 
 
 def compress(s):
     s = s.replace("\r\n", "\n")
     x = bytes(s, encoding='utf-8')
-    return '&[u8; ' + str(len(x)) + '] = b"' + str(x)[2:-1].replace(r"\'", "'").replace(r'"',
-                                                                                  r'\"') + '"'
+    return '&[u8; ' + str(len(x)) + '] = b"' + str(x)[2:-1].replace(r"\'", "'").replace(r'"', r'\"') + '"'
 
 
-with open('src/ui/inline.rs', 'wt') as fh:
+with open('src/ui/inline.rs', 'wt', encoding='UTF8') as fh:
     fh.write('const _COMMON_CSS: ' + compress(strip(common_css)) + ';\n')
     fh.write('const _COMMON_TIS: ' + compress(strip(common_tis)) + ';\n')
     fh.write('const _INDEX: ' + compress(strip(index)) + ';\n')
