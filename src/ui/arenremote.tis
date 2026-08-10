@@ -31,13 +31,10 @@ function aren_set_status(status, key_confirmed, id) {
     var text = "در حال اتصال به سرور آرن...";
     if (status > 0 && key_confirmed) {
         text = "● آماده دریافت پشتیبانی";
-        $(#status-box).style.set { background: "#eefaf3", color: "#17653a", border-color: "#ccebd8" };
     } else if (status == 0) {
         text = "● در حال برقراری ارتباط با سرور";
-        $(#status-box).style.set { background: "#fff8e8", color: "#7a5b12", border-color: "#f0dfa8" };
     } else {
         text = "● ارتباط با سرور آماده نیست";
-        $(#status-box).style.set { background: "#fff1f1", color: "#9f2929", border-color: "#f0caca" };
     }
     $(#status-text).content(text);
 }
