@@ -27,8 +27,10 @@ fn build_manifest() {
     use std::io::Write;
     if std::env::var("PROFILE").unwrap() == "release" {
         let mut res = winres::WindowsResource::new();
-        res.set_icon("res/icon.ico")
-            .set_language(winapi::um::winnt::MAKELANGID(
+        // Aren Remote customer mode is headless. Do not embed the upstream
+        // RustDesk icon; keep only the Windows manifest so the executable has
+        // no visible RustDesk branding.
+        res.set_language(winapi::um::winnt::MAKELANGID(
                 winapi::um::winnt::LANG_ENGLISH,
                 winapi::um::winnt::SUBLANG_ENGLISH_US,
             ))
