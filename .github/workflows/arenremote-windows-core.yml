@@ -86,11 +86,47 @@ jobs:
       - name: Prepare Aren branding and Vazirmatn assets
         shell: pwsh
         run: |
-          $IconB64 = (Get-Content "res\aren-icon.ico.b64" -Raw).Trim()
-          [IO.File]::WriteAllBytes("res\icon.ico", [Convert]::FromBase64String($IconB64))
-
           $LogoB64 = (Get-Content "res\aren-logo.png.b64" -Raw).Trim()
-          [IO.File]::WriteAllBytes("res\aren-logo.png", [Convert]::FromBase64String($LogoB64))
+          $LogoBytes = [Convert]::FromBase64String($LogoB64)
+          [IO.File]::WriteAllBytes("res\aren-logo.png", $LogoBytes)
+
+          if (-not (Test-Path "res\aren-logo.png")) {
+            throw "Aren logo was not produced"
+          }
+          if ((Get-Item "res\aren-logo.png").Length -lt 1000) {
+            throw "Aren logo looks invalid"
+          }
+
+          try {
+            Add-Type -AssemblyName System.Drawing.Common
+          } catch {
+            Add-Type -AssemblyName System.Drawing
+          }
+
+          $SourceImage = [System.Drawing.Image]::FromFile((Resolve-Path "res\aren-logo.png"))
+          $Bitmap = New-Object System.Drawing.Bitmap 256,256
+          $Graphics = [System.Drawing.Graphics]::FromImage($Bitmap)
+          $Graphics.Clear([System.Drawing.Color]::Transparent)
+          $Graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+          $Graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::HighQuality
+          $Graphics.DrawImage($SourceImage, 0, 0, 256, 256)
+
+          $HIcon = $Bitmap.GetHicon()
+          $Icon = [System.Drawing.Icon]::FromHandle($HIcon)
+          $IconStream = [System.IO.File]::Create((Join-Path $PWD "res\icon.ico"))
+          $Icon.Save($IconStream)
+          $IconStream.Close()
+          $Icon.Dispose()
+          $Graphics.Dispose()
+          $Bitmap.Dispose()
+          $SourceImage.Dispose()
+
+          if (-not (Test-Path "res\icon.ico")) {
+            throw "Aren Windows icon was not generated"
+          }
+          if ((Get-Item "res\icon.ico").Length -lt 1000) {
+            throw "Aren Windows icon looks invalid"
+          }
 
           $VazirRegular = "https://raw.githubusercontent.com/rastikerdar/vazirmatn/v33.003/fonts/ttf/Vazirmatn-Regular.ttf"
           $VazirBold = "https://raw.githubusercontent.com/rastikerdar/vazirmatn/v33.003/fonts/ttf/Vazirmatn-Bold.ttf"
