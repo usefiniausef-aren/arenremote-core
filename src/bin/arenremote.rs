@@ -73,7 +73,21 @@ fn main() {
     prepare_arenremote_runtime();
 
     if let Some(args) = core_main::core_main().as_mut() {
-        ui::start(args);
+        if args.is_empty() {
+            // Customer agent mode: core_main() has already started the local
+            // support server and portable service. Keep the process alive but
+            // do not open the RustDesk/ArenRemote main window. ArenCRM will be
+            // the customer-facing UI and incoming control still requires a
+            // local approval prompt.
+            loop {
+                std::thread::park_timeout(std::time::Duration::from_secs(3600));
+            }
+        } else {
+            // Explicit technician/session commands (for example --connect)
+            // may still open the native remote-session window when ArenCRM
+            // invokes them.
+            ui::start(args);
+        }
     }
 
     common::global_clean();
