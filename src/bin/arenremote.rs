@@ -88,7 +88,7 @@ fn try_handle_arencrm_bridge_command() -> bool {
         return true;
     };
 
-    let remote_id = crate::ipc::get_id();
+    let remote_id = ipc::get_id();
     let remote_id = remote_id.trim();
     let ready = !remote_id.is_empty();
 
