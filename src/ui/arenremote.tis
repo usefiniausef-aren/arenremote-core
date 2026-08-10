@@ -1,0 +1,96 @@
+var aren_local_id = "";
+var aren_status = -1;
+
+function aren_clean_id(value) {
+    if (!value) return "";
+    return ("" + value).replace(/\s/g, "");
+}
+
+function aren_format_id(value) {
+    var id = aren_clean_id(value);
+    if (!id) return "";
+    if (!/^\d+$/.test(id) || id.length <= 3) return id;
+    var n = id.length;
+    var first = n % 3 || 3;
+    var out = id.substr(0, first);
+    for (var i = first; i < n; i += 3) {
+        out += " " + id.substr(i, 3);
+    }
+    return out;
+}
+
+function aren_set_status(status, key_confirmed, id) {
+    aren_status = status;
+    if (id && ("" + id) != "0") {
+        aren_local_id = "" + id;
+        $(#local-id).content(aren_format_id(aren_local_id));
+    } else if (!aren_local_id) {
+        $(#local-id).content("در حال دریافت شناسه...");
+    }
+
+    var text = "در حال اتصال به سرور آرن...";
+    if (status > 0 && key_confirmed) {
+        text = "● آماده دریافت پشتیبانی";
+        $(#status-box).style.set { background: "#eefaf3", color: "#17653a", border-color: "#ccebd8" };
+    } else if (status == 0) {
+        text = "● در حال برقراری ارتباط با سرور";
+        $(#status-box).style.set { background: "#fff8e8", color: "#7a5b12", border-color: "#f0dfa8" };
+    } else {
+        text = "● ارتباط با سرور آماده نیست";
+        $(#status-box).style.set { background: "#fff1f1", color: "#9f2929", border-color: "#f0caca" };
+    }
+    $(#status-text).content(text);
+}
+
+function aren_refresh_status() {
+    var state = handler.get_connect_status();
+    aren_set_status(state[0], state[1], state[2]);
+    self.timer(1s, aren_refresh_status);
+}
+
+function aren_connect() {
+    var input = $(#remote-id);
+    var id = aren_clean_id(input.value);
+    $(#connect-error).content("");
+
+    if (!id) {
+        $(#connect-error).content("شناسه دستگاه مقصد را وارد کنید.");
+        view.focus = input;
+        return;
+    }
+    if (!/^\d{6,12}$/.test(id)) {
+        $(#connect-error).content("شناسه واردشده معتبر نیست.");
+        view.focus = input;
+        return;
+    }
+    if (aren_local_id && id == aren_clean_id(aren_local_id)) {
+        $(#connect-error).content("امکان اتصال دستگاه به خودش وجود ندارد.");
+        return;
+    }
+
+    handler.set_remote_id(id);
+    handler.new_remote(id, "connect", false);
+}
+
+event click $(button#connect) {
+    aren_connect();
+}
+
+event keydown $(input#remote-id) (evt) {
+    if (isEnterKey(evt)) {
+        aren_connect();
+        return true;
+    }
+}
+
+function self.ready() {
+    centerize(scaleIt(820), scaleIt(520));
+    view.focus = $(#remote-id);
+    aren_refresh_status();
+}
+
+function self.closing() {
+    var (x, y, w, h) = view.box(#rectw, #border, #screen);
+    handler.closing(x, y, w, h);
+    return true;
+}
