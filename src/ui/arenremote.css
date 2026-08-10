@@ -1,0 +1,198 @@
+html {
+    background: #f4f7fb;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background: #f4f7fb;
+    color: #172033;
+    font-family: "Segoe UI", Tahoma, sans-serif;
+    direction: rtl;
+}
+
+.aren-shell {
+    size: *;
+    padding: 24px;
+    flow: vertical;
+    border-spacing: 18px;
+    box-sizing: border-box;
+}
+
+.aren-header {
+    flow: horizontal;
+    height: 58px;
+    vertical-align: middle;
+}
+
+.aren-brand {
+    width: *;
+}
+
+.aren-brand-title {
+    font-size: 24px;
+    font-weight: 700;
+    color: #172033;
+}
+
+.aren-brand-subtitle {
+    margin-top: 4px;
+    font-size: 12px;
+    color: #6f7b91;
+}
+
+.aren-badge {
+    margin-top: 8px;
+    padding: 7px 12px;
+    border-radius: 18px;
+    background: #e9f8ef;
+    color: #157347;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.aren-grid {
+    size: *;
+    flow: horizontal;
+    border-spacing: 18px;
+}
+
+.aren-card {
+    width: *;
+    height: *;
+    padding: 22px;
+    border-radius: 16px;
+    background: white;
+    border: 1px solid #e4e9f1;
+    box-shadow: 0 8px 28px rgba(30, 45, 70, 0.08);
+    flow: vertical;
+    border-spacing: 14px;
+}
+
+.aren-card-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #172033;
+}
+
+.aren-card-subtitle {
+    font-size: 12px;
+    line-height: 1.6em;
+    color: #778298;
+}
+
+.aren-id-label {
+    margin-top: 8px;
+    font-size: 12px;
+    color: #6f7b91;
+}
+
+.aren-id {
+    padding: 14px;
+    border-radius: 12px;
+    background: #f6f8fc;
+    border: 1px solid #dfe5ef;
+    text-align: center;
+    direction: ltr;
+    font-size: 27px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: #1d4ed8;
+}
+
+.aren-status {
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: #f7faf8;
+    border: 1px solid #dcebe2;
+    color: #25623c;
+    font-size: 12px;
+}
+
+.aren-consent {
+    margin-top: *;
+    padding: 12px;
+    border-radius: 10px;
+    background: #fff9e8;
+    border: 1px solid #f3e2a5;
+    color: #725b16;
+    font-size: 12px;
+    line-height: 1.65em;
+}
+
+.aren-input-label {
+    margin-top: 8px;
+    font-size: 12px;
+    color: #6f7b91;
+}
+
+input#remote-id {
+    height: 46px;
+    padding: 0 14px;
+    border-radius: 10px;
+    border: 1px solid #cfd7e5;
+    background: white;
+    color: #172033;
+    font-size: 18px;
+    direction: ltr;
+    text-align: center;
+}
+
+input#remote-id:focus {
+    border-color: #2f6fed;
+    outline: 2px solid rgba(47,111,237,0.12);
+}
+
+button#connect {
+    height: 46px;
+    border: none;
+    border-radius: 10px;
+    background: #2f6fed;
+    color: white;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+button#connect:hover {
+    background: #255ed0;
+}
+
+button#connect:active {
+    background: #1f4faf;
+}
+
+.aren-error {
+    min-height: 18px;
+    color: #b42318;
+    font-size: 11px;
+    text-align: center;
+}
+
+.aren-tech-note {
+    padding: 12px;
+    border-radius: 10px;
+    background: #f6f8fc;
+    color: #667085;
+    font-size: 11px;
+    line-height: 1.6em;
+}
+
+.aren-footer {
+    height: 26px;
+    flow: horizontal;
+    color: #8a94a6;
+    font-size: 10px;
+}
+
+.aren-footer-left {
+    width: *;
+    text-align: left;
+    direction: ltr;
+}
+
+.aren-footer-right {
+    width: *;
+    text-align: right;
+}
