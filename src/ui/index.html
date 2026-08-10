@@ -1,19 +1,64 @@
 <html>
-
 <head>
     <style>
         @import url(common.css);
-        @import url(index.css);
+        @import url(arenremote.css);
     </style>
     <script type="text/tiscript">
-            include "common.tis";
-            include "msgbox.tis";
-            include "ab.tis";
-            include "index.tis";
-        </script>
+        include "common.tis";
+        include "arenremote.tis";
+    </script>
 </head>
-
 <body>
-</body>
+    <div .aren-shell>
+        <div .aren-header>
+            <div .aren-brand>
+                <div .aren-brand-title>Aren Remote</div>
+                <div .aren-brand-subtitle>سامانه پشتیبانی و دسترسی از راه دور آرن</div>
+            </div>
+            <div .aren-badge>اتصال امن اختصاصی</div>
+        </div>
 
+        <div .aren-grid>
+            <div .aren-card>
+                <div .aren-card-title>دریافت پشتیبانی</div>
+                <div .aren-card-subtitle>
+                    این شناسه را در اختیار کارشناس پشتیبانی قرار دهید. کنترل دستگاه فقط پس از تأیید شما آغاز می‌شود.
+                </div>
+
+                <div .aren-id-label>شناسه این دستگاه</div>
+                <div #local-id .aren-id>در حال دریافت شناسه...</div>
+
+                <div #status-box .aren-status>
+                    <span #status-text>در حال اتصال به سرور آرن...</span>
+                </div>
+
+                <div .aren-consent>
+                    برای حفظ حریم خصوصی، درخواست کنترل از راه دور باید روی همین دستگاه توسط شما تأیید شود. دسترسی خودکار و بدون تأیید در Aren Remote فعال نیست.
+                </div>
+            </div>
+
+            <div .aren-card>
+                <div .aren-card-title>اتصال کارشناس</div>
+                <div .aren-card-subtitle>
+                    شناسه دستگاه مشتری را وارد کنید. پس از ارسال درخواست، مشتری باید اتصال را روی دستگاه خود تأیید کند.
+                </div>
+
+                <div .aren-input-label>شناسه دستگاه مقصد</div>
+                <input|text #remote-id novalue="مثال: 164 722 415" />
+                <button #connect>ارسال درخواست اتصال</button>
+                <div #connect-error .aren-error></div>
+
+                <div .aren-tech-note>
+                    در نسخه فعلی فقط کنترل صفحه و ورودی اصلی فعال است. انتقال فایل، ترمینال، دوربین و دسترسی بدون حضور کاربر به‌صورت پیش‌فرض غیرفعال هستند.
+                </div>
+            </div>
+        </div>
+
+        <div .aren-footer>
+            <div .aren-footer-right>Aren Remote • سایا ارتباط آرن</div>
+            <div .aren-footer-left>Remote support engine • self-hosted</div>
+        </div>
+    </div>
+</body>
 </html>
