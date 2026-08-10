@@ -69,8 +69,57 @@ fn prepare_arenremote_runtime() {
     );
 }
 
+/// Headless integration point for ArenCRM.
+///
+/// Usage:
+///   ArenRemote.Core.exe --aren-session-info <output-json-path>
+///
+/// The command never opens the main UI. It reads the current local ArenRemote
+/// ID through the same IPC/config path used by the engine and writes a compact
+/// JSON document that ArenCRM can poll after starting the customer agent.
+fn try_handle_arencrm_bridge_command() -> bool {
+    let args: Vec<String> = std::env::args().collect();
+
+    if args.get(1).map(String::as_str) != Some("--aren-session-info") {
+        return false;
+    }
+
+    let Some(output_path) = args.get(2) else {
+        return true;
+    };
+
+    let remote_id = crate::ipc::get_id();
+    let remote_id = remote_id.trim();
+    let ready = !remote_id.is_empty();
+
+    // The engine-issued ID and fixed server value contain no JSON control
+    // characters, so keep this dependency-free and deterministic for the CRM
+    // launcher/bridge.
+    let payload = format!(
+        "{{\n  \"ready\": {},\n  \"remoteId\": \"{}\",\n  \"server\": \"{}\",\n  \"app\": \"{}\"\n}}\n",
+        if ready { "true" } else { "false" },
+        remote_id,
+        ARENREMOTE_ID_SERVER,
+        ARENREMOTE_APP_NAME
+    );
+
+    if let Some(parent) = std::path::Path::new(output_path).parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+
+    let _ = std::fs::write(output_path, payload.as_bytes());
+    true
+}
+
 fn main() {
     prepare_arenremote_runtime();
+
+    // ArenCRM bridge commands are intentionally handled before core_main() so
+    // the short-lived helper process never opens the native UI or starts a
+    // second customer server instance.
+    if try_handle_arencrm_bridge_command() {
+        return;
+    }
 
     if let Some(args) = core_main::core_main().as_mut() {
         if args.is_empty() {
