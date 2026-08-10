@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import base64
 import re
 
 
@@ -12,22 +11,12 @@ def read_text(path):
     return open(path, encoding='UTF8').read()
 
 
-def read_b64(path):
-    return base64.b64encode(open(path, 'rb').read()).decode('ascii')
-
-
 common_css = read_text('src/ui/common.css')
 common_tis = read_text('src/ui/common.tis')
-
-aren_css = read_text('src/ui/arenremote.css') \
-    .replace('__VAZIRMATN_REGULAR_TTF__', read_b64('res/Vazirmatn-Regular.ttf')) \
-    .replace('__VAZIRMATN_BOLD_TTF__', read_b64('res/Vazirmatn-Bold.ttf'))
-
-aren_logo = read_text('res/aren-logo.png.b64').strip()
+aren_css = read_text('src/ui/arenremote.css')
 
 index = read_text('src/ui/index.html') \
     .replace('@import url(arenremote.css);', aren_css) \
-    .replace('__AREN_LOGO_PNG__', aren_logo) \
     .replace('include "arenremote.tis";', read_text('src/ui/arenremote.tis'))
 
 remote = read_text('src/ui/remote.html') \
