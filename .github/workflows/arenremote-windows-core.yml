@@ -80,7 +80,7 @@ jobs:
           cargo --version
           clang --version
           Write-Host "VCPKG_ROOT=$env:VCPKG_ROOT"
-          
+
       - name: Generate Sciter inline resources
         shell: pwsh
         run: |
@@ -94,7 +94,7 @@ jobs:
           Write-Host "Sciter inline resources generated successfully:"
           Get-Item 'src\ui\inline.rs' |
             Format-List FullName,Length,LastWriteTime
-            
+
       - name: Compile ArenRemote core
         shell: pwsh
         run: |
@@ -105,19 +105,47 @@ jobs:
             --bin arenremote `
             --features inline
 
+      - name: Download Sciter Windows x64 runtime
+        shell: pwsh
+        run: |
+          $SciterUrl = "https://raw.githubusercontent.com/c-smile/sciter-sdk/master/bin.win/x64/sciter.dll"
+          $SciterPath = "target\x86_64-pc-windows-msvc\release\sciter.dll"
+
+          Invoke-WebRequest -UseBasicParsing -Uri $SciterUrl -OutFile $SciterPath
+
+          if (-not (Test-Path $SciterPath)) {
+            throw "Sciter runtime was not downloaded: $SciterPath"
+          }
+
+          $SciterFile = Get-Item $SciterPath
+          if ($SciterFile.Length -lt 1000000) {
+            throw "Sciter runtime looks invalid: $($SciterFile.Length) bytes"
+          }
+
+          Get-FileHash $SciterPath -Algorithm SHA256 |
+            Format-List Algorithm,Hash,Path
+
       - name: Prepare artifact
         shell: pwsh
         run: |
           $Source = "target\x86_64-pc-windows-msvc\release\arenremote.exe"
+          $SciterSource = "target\x86_64-pc-windows-msvc\release\sciter.dll"
+
           if (-not (Test-Path $Source)) {
             throw "ArenRemote binary was not produced: $Source"
+          }
+          if (-not (Test-Path $SciterSource)) {
+            throw "Sciter runtime was not produced: $SciterSource"
           }
 
           New-Item -ItemType Directory -Force -Path dist | Out-Null
           Copy-Item $Source "dist\ArenRemote.Core.exe" -Force
+          Copy-Item $SciterSource "dist\sciter.dll" -Force
 
-          $Hash = (Get-FileHash "dist\ArenRemote.Core.exe" -Algorithm SHA256).Hash.ToLowerInvariant()
-          "$Hash  ArenRemote.Core.exe" | Set-Content -Encoding ascii "dist\ArenRemote.Core.exe.sha256"
+          $ExeHash = (Get-FileHash "dist\ArenRemote.Core.exe" -Algorithm SHA256).Hash.ToLowerInvariant()
+          $SciterHash = (Get-FileHash "dist\sciter.dll" -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$ExeHash  ArenRemote.Core.exe" | Set-Content -Encoding ascii "dist\ArenRemote.Core.exe.sha256"
+          "$SciterHash  sciter.dll" | Set-Content -Encoding ascii "dist\sciter.dll.sha256"
 
           @(
             "Aren Remote technical isolation build",
@@ -126,11 +154,13 @@ jobs:
             "Target: Windows x64",
             "Runtime identity: ArenRemote",
             "Customer installation: not required",
+            "UI runtime: Sciter x64 bundled beside ArenRemote.Core.exe",
             "Third-party foundation: RustDesk OSS (AGPL-3.0); attribution/source obligations retained"
           ) | Set-Content -Encoding utf8 "dist\BUILD_INFO.txt"
 
           Get-ChildItem dist | Format-Table Name,Length,LastWriteTime
           Get-Content "dist\ArenRemote.Core.exe.sha256"
+          Get-Content "dist\sciter.dll.sha256"
 
       - name: Upload ArenRemote core
         uses: actions/upload-artifact@v4
