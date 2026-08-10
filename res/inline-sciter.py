@@ -8,11 +8,9 @@ def strip(s): return re.sub(r'\s+\n', '\n', re.sub(r'\n\s+', '\n', s))
 common_css = open('src/ui/common.css').read()
 common_tis = open('src/ui/common.tis', encoding='UTF8').read()
 
-index = open('src/ui/index.html').read() \
-    .replace('@import url(index.css);', open('src/ui/index.css').read()) \
-    .replace('include "index.tis";', open('src/ui/index.tis').read()) \
-    .replace('include "msgbox.tis";', open('src/ui/msgbox.tis').read()) \
-    .replace('include "ab.tis";', open('src/ui/ab.tis').read())
+index = open('src/ui/index.html', encoding='UTF8').read() \
+    .replace('@import url(arenremote.css);', open('src/ui/arenremote.css', encoding='UTF8').read()) \
+    .replace('include "arenremote.tis";', open('src/ui/arenremote.tis', encoding='UTF8').read())
 
 remote = open('src/ui/remote.html').read() \
     .replace('@import url(remote.css);', open('src/ui/remote.css').read()) \
