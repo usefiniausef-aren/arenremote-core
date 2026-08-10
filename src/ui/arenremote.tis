@@ -73,13 +73,6 @@ event click $(button#connect) {
     aren_connect();
 }
 
-event keydown $(input#remote-id) (evt) {
-    if (isEnterKey(evt)) {
-        aren_connect();
-        return true;
-    }
-}
-
 function self.ready() {
     centerize(scaleIt(820), scaleIt(520));
     view.focus = $(#remote-id);
