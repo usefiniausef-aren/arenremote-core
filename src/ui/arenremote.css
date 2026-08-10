@@ -1,17 +1,3 @@
-@font-face {
-    font-family: "Vazirmatn";
-    src: url("data:font/ttf;base64,__VAZIRMATN_REGULAR_TTF__") format("truetype");
-    font-weight: 400;
-    font-style: normal;
-}
-
-@font-face {
-    font-family: "Vazirmatn";
-    src: url("data:font/ttf;base64,__VAZIRMATN_BOLD_TTF__") format("truetype");
-    font-weight: 700;
-    font-style: normal;
-}
-
 html {
     background: #f4f7fb;
 }
@@ -22,12 +8,12 @@ body {
     overflow: hidden;
     background: #f4f7fb;
     color: #172033;
-    font-family: "Vazirmatn", "Segoe UI", Tahoma, sans-serif;
+    font-family: "Segoe UI", Tahoma, sans-serif;
     direction: rtl;
 }
 
 body, input, button {
-    font-family: "Vazirmatn", "Segoe UI", Tahoma, sans-serif;
+    font-family: "Segoe UI", Tahoma, sans-serif;
 }
 
 .aren-shell {
@@ -40,25 +26,13 @@ body, input, button {
 
 .aren-header {
     flow: horizontal;
-    height: 72px;
+    height: 58px;
     vertical-align: middle;
 }
 
 .aren-brand-wrap {
     width: *;
-    flow: horizontal;
     vertical-align: middle;
-    border-spacing: 12px;
-}
-
-.aren-logo {
-    width: 54px;
-    height: 54px;
-}
-
-.aren-brand {
-    width: *;
-    padding-top: 3px;
 }
 
 .aren-brand-title {
@@ -76,7 +50,7 @@ body, input, button {
 }
 
 .aren-badge {
-    margin-top: 10px;
+    margin-top: 8px;
     padding: 7px 12px;
     border-radius: 18px;
     background: #e9f8ef;
@@ -115,7 +89,8 @@ body, input, button {
     color: #778298;
 }
 
-.aren-id-label {
+.aren-id-label,
+.aren-input-label {
     margin-top: 8px;
     font-size: 12px;
     color: #6f7b91;
@@ -152,12 +127,6 @@ body, input, button {
     color: #725b16;
     font-size: 12px;
     line-height: 1.9em;
-}
-
-.aren-input-label {
-    margin-top: 8px;
-    font-size: 12px;
-    color: #6f7b91;
 }
 
 input#remote-id {
