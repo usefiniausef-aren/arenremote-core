@@ -33,31 +33,31 @@ jobs:
 
     steps:
       - name: Checkout ArenRemote source
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
           submodules: recursive
 
       - name: Export GitHub Actions cache environment variables
-        uses: actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410 # v6
+        uses: actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410
         with:
           script: |
             core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
             core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
 
       - name: Install LLVM 15
-        uses: KyleMayes/install-llvm-action@ebc0426251bc40c7cd31162802432c68818ab8f0 # v2.0.9
+        uses: KyleMayes/install-llvm-action@ebc0426251bc40c7cd31162802432c68818ab8f0
         with:
           version: "15.0.6"
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
         with:
           toolchain: "1.75.0"
           targets: "x86_64-pc-windows-msvc"
           components: "rustfmt"
 
       - name: Setup vcpkg
-        uses: lukka/run-vcpkg@b1a0dd252f06b9e25b3c022a9a03bd7a427fb6a2 # v11
+        uses: lukka/run-vcpkg@b1a0dd252f06b9e25b3c022a9a03bd7a427fb6a2
         with:
           vcpkgDirectory: C:\vcpkg
           vcpkgGitCommitId: ${{ env.VCPKG_COMMIT_ID }}
@@ -71,7 +71,7 @@ jobs:
             --x-install-root="$env:VCPKG_ROOT\installed"
 
       - name: Cache Rust build output
-        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
         with:
           prefix-key: arenremote-windows-x64
 
@@ -83,89 +83,15 @@ jobs:
           clang --version
           Write-Host "VCPKG_ROOT=$env:VCPKG_ROOT"
 
-      - name: Prepare Aren branding and Vazirmatn assets
-        shell: pwsh
-        run: |
-          $LogoB64 = (Get-Content "res\aren-logo.png.b64" -Raw).Trim()
-          $LogoBytes = [Convert]::FromBase64String($LogoB64)
-          [IO.File]::WriteAllBytes("res\aren-logo.png", $LogoBytes)
-
-          if (-not (Test-Path "res\aren-logo.png")) {
-            throw "Aren logo was not produced"
-          }
-          if ((Get-Item "res\aren-logo.png").Length -lt 1000) {
-            throw "Aren logo looks invalid"
-          }
-
-          try {
-            Add-Type -AssemblyName System.Drawing.Common
-          } catch {
-            Add-Type -AssemblyName System.Drawing
-          }
-
-          $SourceImage = [System.Drawing.Image]::FromFile((Resolve-Path "res\aren-logo.png"))
-          $Bitmap = New-Object System.Drawing.Bitmap 256,256
-          $Graphics = [System.Drawing.Graphics]::FromImage($Bitmap)
-          $Graphics.Clear([System.Drawing.Color]::Transparent)
-          $Graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
-          $Graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::HighQuality
-          $Graphics.DrawImage($SourceImage, 0, 0, 256, 256)
-
-          $HIcon = $Bitmap.GetHicon()
-          $Icon = [System.Drawing.Icon]::FromHandle($HIcon)
-          $IconStream = [System.IO.File]::Create((Join-Path $PWD "res\icon.ico"))
-          $Icon.Save($IconStream)
-          $IconStream.Close()
-          $Icon.Dispose()
-          $Graphics.Dispose()
-          $Bitmap.Dispose()
-          $SourceImage.Dispose()
-
-          if (-not (Test-Path "res\icon.ico")) {
-            throw "Aren Windows icon was not generated"
-          }
-          if ((Get-Item "res\icon.ico").Length -lt 1000) {
-            throw "Aren Windows icon looks invalid"
-          }
-
-          $VazirRegular = "https://raw.githubusercontent.com/rastikerdar/vazirmatn/v33.003/fonts/ttf/Vazirmatn-Regular.ttf"
-          $VazirBold = "https://raw.githubusercontent.com/rastikerdar/vazirmatn/v33.003/fonts/ttf/Vazirmatn-Bold.ttf"
-
-          Invoke-WebRequest -UseBasicParsing -Uri $VazirRegular -OutFile "res\Vazirmatn-Regular.ttf"
-          Invoke-WebRequest -UseBasicParsing -Uri $VazirBold -OutFile "res\Vazirmatn-Bold.ttf"
-
-          foreach ($File in @(
-            "res\icon.ico",
-            "res\aren-logo.png",
-            "res\Vazirmatn-Regular.ttf",
-            "res\Vazirmatn-Bold.ttf"
-          )) {
-            if (-not (Test-Path $File)) {
-              throw "Required branding asset missing: $File"
-            }
-            $Info = Get-Item $File
-            if ($Info.Length -lt 1000) {
-              throw "Branding asset looks invalid: $File ($($Info.Length) bytes)"
-            }
-            Write-Host "$File : $($Info.Length) bytes"
-          }
-
-          Get-FileHash "res\icon.ico" -Algorithm SHA256 |
-            Format-List Algorithm,Hash,Path
-
       - name: Generate Sciter inline resources
         shell: pwsh
         run: |
           python --version
           python res/inline-sciter.py
-
           if (-not (Test-Path 'src\ui\inline.rs')) {
             throw 'src/ui/inline.rs was not generated'
           }
-
-          Write-Host "Sciter inline resources generated successfully:"
-          Get-Item 'src\ui\inline.rs' |
-            Format-List FullName,Length,LastWriteTime
+          Get-Item 'src\ui\inline.rs' | Format-List FullName,Length,LastWriteTime
 
       - name: Compile ArenRemote core
         shell: pwsh
@@ -182,23 +108,14 @@ jobs:
         run: |
           $SciterUrl = "https://raw.githubusercontent.com/c-smile/sciter-sdk/master/bin.win/x64/sciter.dll"
           $SciterPath = "target\x86_64-pc-windows-msvc\release\sciter.dll"
-
           Invoke-WebRequest -UseBasicParsing -Uri $SciterUrl -OutFile $SciterPath
-
           if (-not (Test-Path $SciterPath)) {
             throw "Sciter runtime was not downloaded: $SciterPath"
           }
-
-          $SciterFile = Get-Item $SciterPath
-          if ($SciterFile.Length -lt 1000000) {
-            throw "Sciter runtime looks invalid: $($SciterFile.Length) bytes"
-          }
-
           $ActualSciterHash = (Get-FileHash $SciterPath -Algorithm SHA256).Hash.ToLowerInvariant()
           if ($ActualSciterHash -ne $env:SCITER_SHA256) {
             throw "Sciter SHA256 mismatch. Expected $env:SCITER_SHA256, got $ActualSciterHash"
           }
-
           Write-Host "Verified Sciter SHA256: $ActualSciterHash"
 
       - name: Prepare artifact
@@ -206,13 +123,8 @@ jobs:
         run: |
           $Source = "target\x86_64-pc-windows-msvc\release\arenremote.exe"
           $SciterSource = "target\x86_64-pc-windows-msvc\release\sciter.dll"
-
-          if (-not (Test-Path $Source)) {
-            throw "ArenRemote binary was not produced: $Source"
-          }
-          if (-not (Test-Path $SciterSource)) {
-            throw "Sciter runtime was not produced: $SciterSource"
-          }
+          if (-not (Test-Path $Source)) { throw "ArenRemote binary was not produced: $Source" }
+          if (-not (Test-Path $SciterSource)) { throw "Sciter runtime was not produced: $SciterSource" }
 
           New-Item -ItemType Directory -Force -Path dist | Out-Null
           Copy-Item $Source "dist\ArenRemote.Core.exe" -Force
@@ -224,37 +136,30 @@ jobs:
           "$SciterHash  sciter.dll" | Set-Content -Encoding ascii "dist\sciter.dll.sha256"
 
           @(
-            "Aren Remote Windows x64 support build",
+            "Aren Remote Windows x64 support core",
             "Branch: $env:GITHUB_REF_NAME",
             "Commit: $env:GITHUB_SHA",
             "Target: Windows x64",
             "Runtime identity: ArenRemote",
+            "Customer mode: headless; ArenCRM is the customer-facing UI",
+            "Incoming control: requires local customer approval",
+            "Remote desktop control only; file transfer/terminal/camera/tunnel disabled",
             "Rendezvous/relay: Aren self-hosted infrastructure",
-            "Consent profile: incoming control requires local click approval",
-            "Phase profile: remote desktop control only; file transfer/terminal/camera/tunnel disabled",
-            "Customer installation: not required",
-            "Branding: Aren company logo/icon",
-            "Persian UI font: Vazirmatn v33.003",
-            "UI runtime: verified Sciter x64 bundled beside ArenRemote.Core.exe"
+            "No separate RustDesk UI is presented to the customer"
           ) | Set-Content -Encoding utf8 "dist\BUILD_INFO.txt"
 
           @(
             "OPEN-SOURCE NOTICES",
             "",
-            "Aren Remote contains modified RustDesk open-source software.",
+            "Aren Remote contains modified RustDesk open-source software as its remote-control engine.",
             "RustDesk upstream: https://github.com/rustdesk/rustdesk",
             "Modified Aren Remote source: https://github.com/usefiniausef-aren/arenremote-core",
-            "RustDesk is licensed under GNU AGPL-3.0. Applicable license and source-code obligations are retained.",
-            "",
-            "Vazirmatn font is used for the Persian UI and is licensed under SIL Open Font License 1.1.",
-            "Vazirmatn source: https://github.com/rastikerdar/vazirmatn",
+            "RustDesk is licensed under GNU AGPL-3.0. Applicable source and license obligations are retained.",
             "",
             "The Sciter runtime is distributed as a separate runtime component beside ArenRemote.Core.exe."
           ) | Set-Content -Encoding utf8 "dist\OSS_NOTICES.txt"
 
           Get-ChildItem dist | Format-Table Name,Length,LastWriteTime
-          Get-Content "dist\ArenRemote.Core.exe.sha256"
-          Get-Content "dist\sciter.dll.sha256"
 
       - name: Upload ArenRemote core
         uses: actions/upload-artifact@v4
