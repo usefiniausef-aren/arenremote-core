@@ -12,9 +12,8 @@ const ARENREMOTE_PUBLIC_KEY: &str = "hrAl0y2Ydsr9yRVstP2gr8nevXv9RCcTlDRQYAFIn6o
 /// Establish Aren Remote's runtime identity before RustDesk's lazy configuration,
 /// IPC paths, and rendezvous selection are initialized.
 ///
-/// This intentionally keeps the transport/core implementation compatible with
-/// RustDesk while isolating Aren Remote from any separately installed RustDesk
-/// instance on the same Windows machine.
+/// RustDesk remains the transport engine, while Aren Remote uses an isolated
+/// application namespace and a consent-first support profile.
 fn prepare_arenremote_runtime() {
     {
         let mut app_name = hbb_common::config::APP_NAME
@@ -32,21 +31,36 @@ fn prepare_arenremote_runtime() {
         *prod_server = ARENREMOTE_ID_SERVER.to_owned();
     }
 
-    // Persist only Aren Remote's own non-secret connection settings. Because
-    // APP_NAME is already ArenRemote, these are written to ArenRemote's config
-    // namespace rather than RustDesk's namespace.
-    hbb_common::config::Config::set_option(
-        "custom-rendezvous-server".to_owned(),
-        ARENREMOTE_ID_SERVER.to_owned(),
-    );
-    hbb_common::config::Config::set_option(
-        "key".to_owned(),
-        ARENREMOTE_PUBLIC_KEY.to_owned(),
-    );
+    let options = [
+        ("custom-rendezvous-server", ARENREMOTE_ID_SERVER),
+        ("key", ARENREMOTE_PUBLIC_KEY),
+        // Customer consent is mandatory: an incoming control request must be
+        // approved locally rather than accepted by a reusable password.
+        ("approve-mode", "click"),
+        ("verification-method", "use-temporary-password"),
+        // Phase-1 support profile: remote desktop control only. Extra channels
+        // remain disabled until explicitly introduced and tested in ArenCRM.
+        ("enable-keyboard", "Y"),
+        ("enable-clipboard", "N"),
+        ("enable-file-transfer", "N"),
+        ("enable-camera", "N"),
+        ("enable-terminal", "N"),
+        ("enable-remote-restart", "N"),
+        ("enable-tunnel", "N"),
+        ("enable-block-input", "N"),
+        ("enable-privacy-mode", "N"),
+        ("enable-lan-discovery", "N"),
+        ("allow-remote-config-modification", "N"),
+        ("direct-server", "N"),
+        ("enable-audio", "N"),
+    ];
 
-    // Keep the existing, tested portable custom-server parser available to all
-    // child/elevated processes. The value contains only the public rendezvous
-    // address and public verification key; no password or private key is embedded.
+    for (key, value) in options {
+        hbb_common::config::Config::set_option(key.to_owned(), value.to_owned());
+    }
+
+    // Keep the tested portable custom-server parser available to child/elevated
+    // processes. This contains only the public server address and public key.
     std::env::set_var(
         common::PORTABLE_APPNAME_RUNTIME_ENV_KEY,
         format!(
