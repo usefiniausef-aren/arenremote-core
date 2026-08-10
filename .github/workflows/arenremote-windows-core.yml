@@ -12,7 +12,7 @@ on:
       - "Cargo.toml"
       - "Cargo.lock"
       - "build.rs"
-      - "res/inline-sciter.py"
+      - "res/**"
       - ".github/workflows/arenremote-windows-core.yml"
 
 permissions:
@@ -82,6 +82,40 @@ jobs:
           cargo --version
           clang --version
           Write-Host "VCPKG_ROOT=$env:VCPKG_ROOT"
+
+      - name: Prepare Aren branding and Vazirmatn assets
+        shell: pwsh
+        run: |
+          $IconB64 = (Get-Content "res\aren-icon.ico.b64" -Raw).Trim()
+          [IO.File]::WriteAllBytes("res\icon.ico", [Convert]::FromBase64String($IconB64))
+
+          $LogoB64 = (Get-Content "res\aren-logo.png.b64" -Raw).Trim()
+          [IO.File]::WriteAllBytes("res\aren-logo.png", [Convert]::FromBase64String($LogoB64))
+
+          $VazirRegular = "https://raw.githubusercontent.com/rastikerdar/vazirmatn/v33.003/fonts/ttf/Vazirmatn-Regular.ttf"
+          $VazirBold = "https://raw.githubusercontent.com/rastikerdar/vazirmatn/v33.003/fonts/ttf/Vazirmatn-Bold.ttf"
+
+          Invoke-WebRequest -UseBasicParsing -Uri $VazirRegular -OutFile "res\Vazirmatn-Regular.ttf"
+          Invoke-WebRequest -UseBasicParsing -Uri $VazirBold -OutFile "res\Vazirmatn-Bold.ttf"
+
+          foreach ($File in @(
+            "res\icon.ico",
+            "res\aren-logo.png",
+            "res\Vazirmatn-Regular.ttf",
+            "res\Vazirmatn-Bold.ttf"
+          )) {
+            if (-not (Test-Path $File)) {
+              throw "Required branding asset missing: $File"
+            }
+            $Info = Get-Item $File
+            if ($Info.Length -lt 1000) {
+              throw "Branding asset looks invalid: $File ($($Info.Length) bytes)"
+            }
+            Write-Host "$File : $($Info.Length) bytes"
+          }
+
+          Get-FileHash "res\icon.ico" -Algorithm SHA256 |
+            Format-List Algorithm,Hash,Path
 
       - name: Generate Sciter inline resources
         shell: pwsh
@@ -163,6 +197,8 @@ jobs:
             "Consent profile: incoming control requires local click approval",
             "Phase profile: remote desktop control only; file transfer/terminal/camera/tunnel disabled",
             "Customer installation: not required",
+            "Branding: Aren company logo/icon",
+            "Persian UI font: Vazirmatn v33.003",
             "UI runtime: verified Sciter x64 bundled beside ArenRemote.Core.exe"
           ) | Set-Content -Encoding utf8 "dist\BUILD_INFO.txt"
 
@@ -173,6 +209,9 @@ jobs:
             "RustDesk upstream: https://github.com/rustdesk/rustdesk",
             "Modified Aren Remote source: https://github.com/usefiniausef-aren/arenremote-core",
             "RustDesk is licensed under GNU AGPL-3.0. Applicable license and source-code obligations are retained.",
+            "",
+            "Vazirmatn font is used for the Persian UI and is licensed under SIL Open Font License 1.1.",
+            "Vazirmatn source: https://github.com/rastikerdar/vazirmatn",
             "",
             "The Sciter runtime is distributed as a separate runtime component beside ArenRemote.Core.exe."
           ) | Set-Content -Encoding utf8 "dist\OSS_NOTICES.txt"
