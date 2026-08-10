@@ -80,7 +80,19 @@ jobs:
           cargo --version
           clang --version
           Write-Host "VCPKG_ROOT=$env:VCPKG_ROOT"
+      - name: Generate Sciter inline resources
+        shell: pwsh
+        run: |
+          python --version
+          python res/inline-sciter.py
 
+          if (-not (Test-Path 'src\ui\inline.rs')) {
+            throw 'src/ui/inline.rs was not generated'
+          }
+
+          Write-Host "Sciter inline resources generated successfully:"
+          Get-Item 'src\ui\inline.rs' |
+            Format-List FullName,Length,LastWriteTime
       - name: Compile ArenRemote core
         shell: pwsh
         run: |
