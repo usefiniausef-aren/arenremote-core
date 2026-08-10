@@ -80,6 +80,7 @@ jobs:
           cargo --version
           clang --version
           Write-Host "VCPKG_ROOT=$env:VCPKG_ROOT"
+          
       - name: Generate Sciter inline resources
         shell: pwsh
         run: |
@@ -93,6 +94,7 @@ jobs:
           Write-Host "Sciter inline resources generated successfully:"
           Get-Item 'src\ui\inline.rs' |
             Format-List FullName,Length,LastWriteTime
+            
       - name: Compile ArenRemote core
         shell: pwsh
         run: |
