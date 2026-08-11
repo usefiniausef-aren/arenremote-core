@@ -3,6 +3,7 @@
     windows_subsystem = "windows"
 )]
 
+use hbb_common::log;
 use librustdesk::*;
 use std::{
     fs::File,
