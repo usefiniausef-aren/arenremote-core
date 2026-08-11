@@ -12,6 +12,8 @@ mod app {
     };
 
     use serde::Deserialize;
+    use sha2::{Digest, Sha256};
+    use url::Url;
     use winreg::{
         enums::{HKEY_CURRENT_USER, KEY_WRITE},
         RegKey,
@@ -23,18 +25,32 @@ mod app {
         },
     };
 
-    const APP_TITLE: &str = "Aren Remote Viewer";
+    const APP_TITLE: &str = "Aren Remote";
     const PROTOCOL: &str = "arenremote";
     const INSTALL_DIR_NAME: &str = "ArenRemoteViewer";
     const LAUNCHER_FILE: &str = "ArenRemote.ViewerLauncher.exe";
     const CORE_FILE: &str = "ArenRemote.Core.exe";
     const SCITER_FILE: &str = "sciter.dll";
-    const RESOLVE_BASE_URL: &str = "https://crm.aren-co.ir/RemoteSupport/ResolveViewer/";
+    const VIEWER_RESOLVE_BASE_URL: &str = "https://crm.aren-co.ir/RemoteSupport/ResolveViewer/";
+    const CUSTOMER_RESOLVE_BASE_URL: &str = "https://crm.aren-co.ir/RemoteSupport/ResolveCustomer/";
+    const MAX_CUSTOMER_PACKAGE_BYTES: u64 = 128 * 1024 * 1024;
 
     #[derive(Deserialize)]
     #[serde(rename_all = "camelCase")]
-    struct ResolveResponse {
+    struct ViewerResolveResponse {
         remote_device_id: String,
+    }
+
+    #[derive(Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct CustomerResolveResponse {
+        package_url: String,
+        package_sha256: String,
+    }
+
+    enum ProtocolAction {
+        Technician(String),
+        Customer(String),
     }
 
     pub fn run() -> Result<(), Box<dyn Error>> {
@@ -43,12 +59,14 @@ mod app {
         match args.get(1).map(String::as_str) {
             Some("--install") => {
                 install()?;
-                show_info("Aren Remote Viewer با موفقیت برای این کاربر نصب و فعال شد.");
+                if !args.iter().any(|x| x == "--silent") {
+                    show_info("Aren Remote با موفقیت برای این کاربر فعال شد. از این پس پشتیبانی مشتری و اتصال کارشناس از داخل ArenCRM انجام می‌شود.");
+                }
                 Ok(())
             }
             Some("--uninstall") => {
                 uninstall()?;
-                show_info("Aren Remote Viewer برای این کاربر غیرفعال شد.");
+                show_info("Aren Remote برای این کاربر غیرفعال شد.");
                 Ok(())
             }
             Some("--connect") => {
@@ -56,31 +74,37 @@ mod app {
                 connect(id)
             }
             Some(value) if value.to_ascii_lowercase().starts_with("arenremote://") => {
-                let token = parse_protocol_uri(value).ok_or("Invalid Aren Remote protocol URL")?;
-                let remote_id = resolve_launch_token(&token)?;
-                connect(&remote_id)
+                match parse_protocol_uri(value).ok_or("Invalid Aren Remote protocol URL")? {
+                    ProtocolAction::Technician(token) => {
+                        let remote_id = resolve_viewer_launch_token(&token)?;
+                        connect(&remote_id)
+                    }
+                    ProtocolAction::Customer(token) => launch_customer_support(&token),
+                }
             }
             Some(_) => {
-                show_error("دستور Aren Remote Viewer معتبر نیست.");
+                show_error("دستور Aren Remote معتبر نیست.");
                 Ok(())
             }
             None => {
                 install()?;
-                show_info("Aren Remote Viewer آماده است. اکنون می‌توانید از داخل ArenCRM روی «بازکردن Viewer» کلیک کنید.");
+                show_info("Aren Remote آماده است. از این پس فقط از صفحه پشتیبانی ArenCRM استفاده کنید.");
                 Ok(())
             }
         }
     }
 
     pub fn show_fatal(message: &str) {
-        show_error(&format!("راه‌اندازی Viewer انجام نشد.\n\n{message}\n\nاگر صفحه نشست مدت زیادی باز بوده، به ArenCRM برگردید و دوباره Viewer را آماده کنید."));
+        show_error(&format!(
+            "راه‌اندازی Aren Remote انجام نشد.\n\n{message}\n\nبه صفحه پشتیبانی ArenCRM برگردید و دوباره تلاش کنید."
+        ));
     }
 
     fn install() -> Result<(), Box<dyn Error>> {
         let source_launcher = env::current_exe()?;
         let source_dir = source_launcher
             .parent()
-            .ok_or("Could not resolve viewer source directory")?;
+            .ok_or("Could not resolve Aren Remote source directory")?;
 
         let source_core = source_dir.join(CORE_FILE);
         let source_sciter = source_dir.join(SCITER_FILE);
@@ -128,23 +152,86 @@ mod app {
         Ok(())
     }
 
-    fn resolve_launch_token(token: &str) -> Result<String, Box<dyn Error>> {
-        if token.len() < 20
-            || token.len() > 4096
-            || !token
-                .chars()
-                .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.'))
-        {
-            return Err("Invalid launch token".into());
+    fn http_client() -> Result<reqwest::blocking::Client, Box<dyn Error>> {
+        Ok(reqwest::blocking::Client::builder()
+            .timeout(Duration::from_secs(30))
+            .build()?)
+    }
+
+    fn resolve_viewer_launch_token(token: &str) -> Result<String, Box<dyn Error>> {
+        validate_token(token)?;
+        let url = format!("{VIEWER_RESOLVE_BASE_URL}{token}");
+        let response = http_client()?.get(url).send()?.error_for_status()?;
+        let payload: ViewerResolveResponse = response.json()?;
+        normalize_remote_id(&payload.remote_device_id)
+            .ok_or_else(|| "Invalid Remote ID returned by CRM".into())
+    }
+
+    fn launch_customer_support(token: &str) -> Result<(), Box<dyn Error>> {
+        validate_token(token)?;
+        let resolve_url = format!("{CUSTOMER_RESOLVE_BASE_URL}{token}");
+        let client = http_client()?;
+        let response = client.get(resolve_url).send()?.error_for_status()?;
+        let payload: CustomerResolveResponse = response.json()?;
+
+        let expected_sha = normalize_sha256(&payload.package_sha256)
+            .ok_or("Invalid customer package SHA256 returned by CRM")?;
+        validate_customer_package_url(&payload.package_url)?;
+
+        let mut package_response = client
+            .get(&payload.package_url)
+            .send()?
+            .error_for_status()?;
+
+        if let Some(length) = package_response.content_length() {
+            if length == 0 || length > MAX_CUSTOMER_PACKAGE_BYTES {
+                return Err("Customer support package has an invalid size".into());
+            }
         }
 
-        let url = format!("{RESOLVE_BASE_URL}{token}");
-        let client = reqwest::blocking::Client::builder()
-            .timeout(Duration::from_secs(15))
-            .build()?;
-        let response = client.get(url).send()?.error_for_status()?;
-        let payload: ResolveResponse = response.json()?;
-        normalize_remote_id(&payload.remote_device_id).ok_or_else(|| "Invalid Remote ID returned by CRM".into())
+        let bytes = package_response.bytes()?;
+        if bytes.is_empty() || bytes.len() as u64 > MAX_CUSTOMER_PACKAGE_BYTES {
+            return Err("Customer support package has an invalid size".into());
+        }
+
+        let actual_sha = hex::encode(Sha256::digest(bytes.as_ref()));
+        if actual_sha != expected_sha {
+            return Err("Customer support package SHA256 verification failed".into());
+        }
+
+        let install_dir = install_dir()?;
+        let session_dir = install_dir.join("Sessions");
+        fs::create_dir_all(&session_dir)?;
+        cleanup_old_session_packages(&session_dir);
+
+        let token_hash = hex::encode(Sha256::digest(token.as_bytes()));
+        let stem = &token_hash[..16];
+        let temp_path = session_dir.join(format!("ArenRemote-{stem}.tmp"));
+        let package_path = session_dir.join(format!("ArenRemote-{stem}.exe"));
+
+        fs::write(&temp_path, bytes.as_ref())?;
+        if package_path.exists() {
+            let _ = fs::remove_file(&package_path);
+        }
+        fs::rename(&temp_path, &package_path)?;
+
+        Command::new(&package_path)
+            .current_dir(&session_dir)
+            .spawn()?;
+
+        Ok(())
+    }
+
+    fn validate_customer_package_url(raw: &str) -> Result<(), Box<dyn Error>> {
+        let url = Url::parse(raw)?;
+        if url.scheme() != "https"
+            || url.host_str() != Some("crm.aren-co.ir")
+            || url.port_or_known_default() != Some(443)
+            || !url.path().starts_with("/RemoteSupport/")
+        {
+            return Err("CRM returned an untrusted customer package URL".into());
+        }
+        Ok(())
     }
 
     fn connect(raw_id: &str) -> Result<(), Box<dyn Error>> {
@@ -154,7 +241,7 @@ mod app {
         let sciter = install_dir.join(SCITER_FILE);
 
         if !core.is_file() || !sciter.is_file() {
-            show_error("Aren Remote Viewer کامل نصب نشده است. بسته Viewer را دوباره اجرا کنید.");
+            show_error("Aren Remote کامل فعال نشده است. بسته Aren Remote را دوباره اجرا کنید.");
             return Ok(());
         }
 
@@ -167,18 +254,42 @@ mod app {
         Ok(())
     }
 
-    fn parse_protocol_uri(uri: &str) -> Option<String> {
+    fn parse_protocol_uri(uri: &str) -> Option<ProtocolAction> {
         let lower = uri.to_ascii_lowercase();
-        let prefix = "arenremote://launch/";
-        if !lower.starts_with(prefix) {
-            return None;
+        for (prefix, is_customer) in [
+            ("arenremote://launch/", false),
+            ("arenremote://support/", true),
+        ] {
+            if lower.starts_with(prefix) {
+                let token = &uri[prefix.len()..];
+                let token = token
+                    .split(['?', '#'])
+                    .next()
+                    .unwrap_or_default()
+                    .trim_matches('/');
+                if token.is_empty() {
+                    return None;
+                }
+                return Some(if is_customer {
+                    ProtocolAction::Customer(token.to_owned())
+                } else {
+                    ProtocolAction::Technician(token.to_owned())
+                });
+            }
         }
-        let token = &uri[prefix.len()..];
-        let token = token.split(['?', '#']).next().unwrap_or_default().trim_matches('/');
-        if token.is_empty() {
-            return None;
+        None
+    }
+
+    fn validate_token(token: &str) -> Result<(), Box<dyn Error>> {
+        if token.len() < 20
+            || token.len() > 4096
+            || !token
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.'))
+        {
+            return Err("Invalid Aren Remote launch token".into());
         }
-        Some(token.to_owned())
+        Ok(())
     }
 
     fn normalize_remote_id(value: &str) -> Option<String> {
@@ -192,6 +303,39 @@ mod app {
         Some(value.to_owned())
     }
 
+    fn normalize_sha256(value: &str) -> Option<String> {
+        let value = value.trim().to_ascii_lowercase();
+        if value.len() != 64 || !value.chars().all(|c| c.is_ascii_hexdigit()) {
+            return None;
+        }
+        Some(value)
+    }
+
+    fn cleanup_old_session_packages(session_dir: &Path) {
+        let cutoff = std::time::SystemTime::now()
+            .checked_sub(Duration::from_secs(24 * 60 * 60));
+        let Some(cutoff) = cutoff else {
+            return;
+        };
+        let Ok(entries) = fs::read_dir(session_dir) else {
+            return;
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if !path.is_file() {
+                continue;
+            }
+            let remove = entry
+                .metadata()
+                .and_then(|m| m.modified())
+                .map(|modified| modified < cutoff)
+                .unwrap_or(false);
+            if remove {
+                let _ = fs::remove_file(path);
+            }
+        }
+    }
+
     fn install_dir() -> Result<PathBuf, Box<dyn Error>> {
         let local_app_data = env::var_os("LOCALAPPDATA").ok_or("LOCALAPPDATA is unavailable")?;
         Ok(PathBuf::from(local_app_data).join(INSTALL_DIR_NAME))
@@ -199,7 +343,7 @@ mod app {
 
     fn require_file(path: &Path, label: &str) -> Result<(), Box<dyn Error>> {
         if !path.is_file() {
-            return Err(format!("Required viewer file is missing: {label}").into());
+            return Err(format!("Required Aren Remote file is missing: {label}").into());
         }
         Ok(())
     }
@@ -252,5 +396,5 @@ fn main() {
 
 #[cfg(not(target_os = "windows"))]
 fn main() {
-    eprintln!("Aren Remote Viewer Launcher is supported on Windows only.");
+    eprintln!("Aren Remote Launcher is supported on Windows only.");
 }
