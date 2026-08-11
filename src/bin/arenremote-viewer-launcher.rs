@@ -72,6 +72,10 @@ mod app {
         }
     }
 
+    pub fn show_fatal(message: &str) {
+        show_error(&format!("راه‌اندازی Viewer انجام نشد.\n\n{message}\n\nاگر صفحه نشست مدت زیادی باز بوده، به ArenCRM برگردید و دوباره Viewer را آماده کنید."));
+    }
+
     fn install() -> Result<(), Box<dyn Error>> {
         let source_launcher = env::current_exe()?;
         let source_dir = source_launcher
@@ -242,7 +246,7 @@ mod app {
 #[cfg(target_os = "windows")]
 fn main() {
     if let Err(err) = app::run() {
-        eprintln!("Aren Remote Viewer error: {err}");
+        app::show_fatal(&err.to_string());
     }
 }
 
