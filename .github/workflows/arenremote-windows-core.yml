@@ -104,7 +104,7 @@ jobs:
             --bin arenremote `
             --features inline
 
-      - name: Compile technician viewer launcher
+      - name: Compile unified ArenRemote launcher
         shell: pwsh
         run: |
           cargo build `
@@ -135,7 +135,7 @@ jobs:
           $ViewerSource = "target\x86_64-pc-windows-msvc\release\arenremote-viewer-launcher.exe"
           $SciterSource = "target\x86_64-pc-windows-msvc\release\sciter.dll"
           if (-not (Test-Path $CoreSource)) { throw "ArenRemote binary was not produced: $CoreSource" }
-          if (-not (Test-Path $ViewerSource)) { throw "Viewer launcher was not produced: $ViewerSource" }
+          if (-not (Test-Path $ViewerSource)) { throw "ArenRemote launcher was not produced: $ViewerSource" }
           if (-not (Test-Path $SciterSource)) { throw "Sciter runtime was not produced: $SciterSource" }
 
           New-Item -ItemType Directory -Force -Path dist | Out-Null
@@ -156,12 +156,14 @@ jobs:
             "Commit: $env:GITHUB_SHA",
             "Target: Windows x64",
             "Runtime identity: ArenRemote",
-            "Customer mode: headless; ArenCRM is the customer-facing UI",
+            "Customer mode: ArenCRM page -> arenremote://support/<protected-token> -> verified one-time customer package -> headless Core",
             "Customer consent UI: native Windows prompt; no Sciter dependency for incoming approval",
-            "Technician mode: per-user arenremote:// protocol launcher",
+            "Technician mode: ArenCRM page -> arenremote://launch/<protected-token> -> CRM resolve -> native viewer",
+            "Unified per-user protocol helper: ArenRemote.ViewerLauncher.exe",
             "Viewer install directory: %LOCALAPPDATA%\ArenRemoteViewer",
             "Incoming control: requires explicit local customer approval",
             "Remote desktop control only; file transfer/terminal/camera/tunnel disabled",
+            "Customer package downloads are HTTPS allowlisted to crm.aren-co.ir and SHA256 verified",
             "Rendezvous/relay: Aren self-hosted infrastructure",
             "No separate RustDesk UI is presented to the customer"
           ) | Set-Content -Encoding utf8 "dist\BUILD_INFO.txt"
