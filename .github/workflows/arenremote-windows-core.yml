@@ -7,6 +7,7 @@ on:
       - arenremote-v1
     paths:
       - "src/bin/arenremote.rs"
+      - "src/bin/arenremote-viewer-launcher.rs"
       - "src/**"
       - "libs/**"
       - "Cargo.toml"
@@ -103,6 +104,15 @@ jobs:
             --bin arenremote `
             --features inline
 
+      - name: Compile technician viewer launcher
+        shell: pwsh
+        run: |
+          cargo build `
+            --locked `
+            --release `
+            --target x86_64-pc-windows-msvc `
+            --bin arenremote-viewer-launcher
+
       - name: Download and verify Sciter Windows x64 runtime
         shell: pwsh
         run: |
@@ -121,27 +131,34 @@ jobs:
       - name: Prepare artifact
         shell: pwsh
         run: |
-          $Source = "target\x86_64-pc-windows-msvc\release\arenremote.exe"
+          $CoreSource = "target\x86_64-pc-windows-msvc\release\arenremote.exe"
+          $ViewerSource = "target\x86_64-pc-windows-msvc\release\arenremote-viewer-launcher.exe"
           $SciterSource = "target\x86_64-pc-windows-msvc\release\sciter.dll"
-          if (-not (Test-Path $Source)) { throw "ArenRemote binary was not produced: $Source" }
+          if (-not (Test-Path $CoreSource)) { throw "ArenRemote binary was not produced: $CoreSource" }
+          if (-not (Test-Path $ViewerSource)) { throw "Viewer launcher was not produced: $ViewerSource" }
           if (-not (Test-Path $SciterSource)) { throw "Sciter runtime was not produced: $SciterSource" }
 
           New-Item -ItemType Directory -Force -Path dist | Out-Null
-          Copy-Item $Source "dist\ArenRemote.Core.exe" -Force
+          Copy-Item $CoreSource "dist\ArenRemote.Core.exe" -Force
+          Copy-Item $ViewerSource "dist\ArenRemote.ViewerLauncher.exe" -Force
           Copy-Item $SciterSource "dist\sciter.dll" -Force
 
-          $ExeHash = (Get-FileHash "dist\ArenRemote.Core.exe" -Algorithm SHA256).Hash.ToLowerInvariant()
+          $CoreHash = (Get-FileHash "dist\ArenRemote.Core.exe" -Algorithm SHA256).Hash.ToLowerInvariant()
+          $ViewerHash = (Get-FileHash "dist\ArenRemote.ViewerLauncher.exe" -Algorithm SHA256).Hash.ToLowerInvariant()
           $SciterHash = (Get-FileHash "dist\sciter.dll" -Algorithm SHA256).Hash.ToLowerInvariant()
-          "$ExeHash  ArenRemote.Core.exe" | Set-Content -Encoding ascii "dist\ArenRemote.Core.exe.sha256"
+          "$CoreHash  ArenRemote.Core.exe" | Set-Content -Encoding ascii "dist\ArenRemote.Core.exe.sha256"
+          "$ViewerHash  ArenRemote.ViewerLauncher.exe" | Set-Content -Encoding ascii "dist\ArenRemote.ViewerLauncher.exe.sha256"
           "$SciterHash  sciter.dll" | Set-Content -Encoding ascii "dist\sciter.dll.sha256"
 
           @(
-            "Aren Remote Windows x64 support core",
+            "Aren Remote Windows x64 support runtime",
             "Branch: $env:GITHUB_REF_NAME",
             "Commit: $env:GITHUB_SHA",
             "Target: Windows x64",
             "Runtime identity: ArenRemote",
             "Customer mode: headless; ArenCRM is the customer-facing UI",
+            "Technician mode: per-user arenremote:// protocol launcher",
+            "Viewer install directory: %LOCALAPPDATA%\ArenRemoteViewer",
             "Incoming control: requires local customer approval",
             "Remote desktop control only; file transfer/terminal/camera/tunnel disabled",
             "Rendezvous/relay: Aren self-hosted infrastructure",
@@ -161,10 +178,10 @@ jobs:
 
           Get-ChildItem dist | Format-Table Name,Length,LastWriteTime
 
-      - name: Upload ArenRemote core
+      - name: Upload ArenRemote Windows runtime
         uses: actions/upload-artifact@v4
         with:
-          name: ArenRemote-Core-Windows-x64
+          name: ArenRemote-Windows-x64-R5
           path: dist/*
           if-no-files-found: error
           retention-days: 14
