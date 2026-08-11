@@ -151,15 +151,16 @@ jobs:
           "$SciterHash  sciter.dll" | Set-Content -Encoding ascii "dist\sciter.dll.sha256"
 
           @(
-            "Aren Remote Windows x64 support runtime",
+            "Aren Remote Windows x64 support runtime R6",
             "Branch: $env:GITHUB_REF_NAME",
             "Commit: $env:GITHUB_SHA",
             "Target: Windows x64",
             "Runtime identity: ArenRemote",
             "Customer mode: headless; ArenCRM is the customer-facing UI",
+            "Customer consent UI: native Windows prompt; no Sciter dependency for incoming approval",
             "Technician mode: per-user arenremote:// protocol launcher",
             "Viewer install directory: %LOCALAPPDATA%\ArenRemoteViewer",
-            "Incoming control: requires local customer approval",
+            "Incoming control: requires explicit local customer approval",
             "Remote desktop control only; file transfer/terminal/camera/tunnel disabled",
             "Rendezvous/relay: Aren self-hosted infrastructure",
             "No separate RustDesk UI is presented to the customer"
@@ -173,7 +174,7 @@ jobs:
             "Modified Aren Remote source: https://github.com/usefiniausef-aren/arenremote-core",
             "RustDesk is licensed under GNU AGPL-3.0. Applicable source and license obligations are retained.",
             "",
-            "The Sciter runtime is distributed as a separate runtime component beside ArenRemote.Core.exe."
+            "The Sciter runtime is distributed as a separate runtime component for technician viewer UI."
           ) | Set-Content -Encoding utf8 "dist\OSS_NOTICES.txt"
 
           Get-ChildItem dist | Format-Table Name,Length,LastWriteTime
@@ -181,7 +182,7 @@ jobs:
       - name: Upload ArenRemote Windows runtime
         uses: actions/upload-artifact@v4
         with:
-          name: ArenRemote-Windows-x64-R5
+          name: ArenRemote-Windows-x64-R6
           path: dist/*
           if-no-files-found: error
           retention-days: 14
