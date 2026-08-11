@@ -59,7 +59,10 @@ mod whiteboard;
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 mod updater;
 
-mod ui_cm_interface;
+// ArenRemote's Windows quick-support binary supplies a minimal native consent
+// connection manager so incoming support can be approved without loading the
+// full Sciter connection-manager UI. Keep the interface public for that binary.
+pub mod ui_cm_interface;
 mod ui_interface;
 mod ui_session_interface;
 
