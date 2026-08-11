@@ -12,6 +12,16 @@ use std::{
     time::{Duration, SystemTime},
 };
 
+#[cfg(target_os = "windows")]
+use librustdesk::ui_cm_interface::{Client as CmClient, ConnectionManager, InvokeUiCM};
+#[cfg(target_os = "windows")]
+use windows::{
+    core::PCWSTR,
+    Win32::UI::WindowsAndMessaging::{
+        MessageBoxW, MB_DEFBUTTON2, MB_ICONQUESTION, MB_SETFOREGROUND, MB_TOPMOST, MB_YESNO,
+    },
+};
+
 const ARENREMOTE_APP_NAME: &str = "ArenRemote";
 const ARENREMOTE_ID_SERVER: &str = "185.132.80.165";
 const ARENREMOTE_PUBLIC_KEY: &str = "hrAl0y2Ydsr9yRVstP2gr8nevXv9RCcTlDRQYAFIn6o=";
@@ -28,6 +38,142 @@ struct ArenCrmSessionConfig {
     heartbeat_url: String,
     access_code: String,
     heartbeat_seconds: u64,
+}
+
+#[cfg(target_os = "windows")]
+#[derive(Clone, Default)]
+struct ArenRemoteNativeConsentHandler;
+
+#[cfg(target_os = "windows")]
+fn to_wide(value: &str) -> Vec<u16> {
+    value.encode_utf16().chain(std::iter::once(0)).collect()
+}
+
+#[cfg(target_os = "windows")]
+fn clean_peer_name(value: &str) -> String {
+    let cleaned: String = value
+        .chars()
+        .filter(|c| !c.is_control())
+        .take(80)
+        .collect();
+    let cleaned = cleaned.trim();
+    if cleaned.is_empty() {
+        "کارشناس پشتیبانی".to_owned()
+    } else {
+        cleaned.to_owned()
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn show_native_consent_prompt(client: &CmClient) -> bool {
+    let peer_name = clean_peer_name(&client.name);
+    let message = format!(
+        "درخواست پشتیبانی از راه دور دریافت شد.\n\nکارشناس: {peer_name}\n\nآیا اجازه مشاهده و کنترل این دستگاه را می‌دهید؟\n\nبرای رد درخواست، گزینه «خیر» را انتخاب کنید."
+    );
+    let title = "Aren Remote - تایید دسترسی";
+    let message = to_wide(&message);
+    let title = to_wide(title);
+
+    // MessageBoxW return value 6 is IDYES. Keep the numeric comparison here so
+    // the code remains compatible with the windows crate version pinned by the
+    // upstream project.
+    let result = unsafe {
+        MessageBoxW(
+            None,
+            PCWSTR(message.as_ptr()),
+            PCWSTR(title.as_ptr()),
+            MB_YESNO
+                | MB_ICONQUESTION
+                | MB_DEFBUTTON2
+                | MB_SETFOREGROUND
+                | MB_TOPMOST,
+        )
+    };
+    result.0 == 6
+}
+
+#[cfg(target_os = "windows")]
+impl InvokeUiCM for ArenRemoteNativeConsentHandler {
+    fn add_connection(&self, client: &CmClient) {
+        // ArenRemote quick support is deliberately remote-desktop-only. Reject
+        // any auxiliary channel here as a second fail-closed layer even if a
+        // future configuration regression accidentally enables one.
+        if client.is_file_transfer
+            || client.is_view_camera
+            || client.is_terminal
+            || !client.port_forward.trim().is_empty()
+        {
+            log::warn!(
+                "ArenRemote native consent rejected unsupported incoming channel for connection {}",
+                client.id
+            );
+            librustdesk::ui_cm_interface::close(client.id);
+            return;
+        }
+
+        log::info!(
+            "ArenRemote native consent prompt opened for connection {}",
+            client.id
+        );
+
+        if show_native_consent_prompt(client) {
+            log::info!(
+                "ArenRemote native consent accepted for connection {}",
+                client.id
+            );
+            librustdesk::ui_cm_interface::authorize(client.id);
+        } else {
+            log::info!(
+                "ArenRemote native consent rejected for connection {}",
+                client.id
+            );
+            librustdesk::ui_cm_interface::close(client.id);
+        }
+    }
+
+    fn remove_connection(&self, _id: i32, _close: bool) {
+        // Match the stock connection-manager lifecycle: once no incoming
+        // request remains, terminate this short-lived CM subprocess. Delay the
+        // check slightly so the shared client map has completed its cleanup.
+        std::thread::spawn(|| {
+            std::thread::sleep(Duration::from_millis(150));
+            if librustdesk::ui_cm_interface::get_clients_length() == 0 {
+                std::process::exit(0);
+            }
+        });
+    }
+
+    fn new_message(&self, _id: i32, _text: String) {}
+    fn change_theme(&self, _dark: String) {}
+    fn change_language(&self) {}
+    fn show_elevation(&self, _show: bool) {}
+    fn update_voice_call_state(&self, _client: &CmClient) {}
+    fn file_transfer_log(&self, _action: &str, _log: &str) {}
+}
+
+#[cfg(target_os = "windows")]
+fn try_run_native_consent_cm() -> bool {
+    if std::env::args().nth(1).as_deref() != Some("--cm") {
+        return false;
+    }
+
+    // The stock --cm path is Sciter based. Quick Support intentionally runs
+    // headless and its temporary runtime may not have a Sciter UI beside each
+    // child process. Use a small native Windows consent surface instead. This
+    // keeps consent visible while removing the UI-runtime dependency entirely.
+    hbb_common::init_log(false, "cm");
+    log::info!("Starting ArenRemote native consent connection manager");
+
+    let cm = ConnectionManager {
+        ui_handler: ArenRemoteNativeConsentHandler::default(),
+    };
+    librustdesk::ui_cm_interface::start_ipc(cm);
+    true
+}
+
+#[cfg(not(target_os = "windows"))]
+fn try_run_native_consent_cm() -> bool {
+    false
 }
 
 /// Establish Aren Remote's runtime identity before RustDesk's lazy configuration,
@@ -285,9 +431,10 @@ fn start_arencrm_quick_support_reporter(config: ArenCrmSessionConfig) {
             return;
         }
 
-        let device_name = std::env::var("COMPUTERNAME").unwrap_or_else(|_| "Windows device".to_owned());
+        let device_name =
+            std::env::var("COMPUTERNAME").unwrap_or_else(|_| "Windows device".to_owned());
         let platform = format!("Windows {}", std::env::consts::ARCH);
-        let client_version = "ArenRemote-R4";
+        let client_version = "ArenRemote-R6";
 
         let hello_body = serde_json::json!({
             "sessionId": config.session_id.clone(),
@@ -384,6 +531,13 @@ fn start_arencrm_quick_support_reporter(config: ArenCrmSessionConfig) {
 
 fn main() {
     prepare_arenremote_runtime();
+
+    // Incoming quick-support consent uses a native Windows prompt rather than
+    // the stock Sciter connection-manager window. Handle --cm before core_main
+    // can route it into ui::start().
+    if try_run_native_consent_cm() {
+        return;
+    }
 
     // ArenCRM bridge commands are intentionally handled before core_main() so
     // the short-lived helper process never opens the native UI or starts a
